@@ -1,0 +1,47 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: basic-dev-ops-site-trial
+  labels:
+    app.kubernetes.io/name: webstar
+    # prettier-ignore
+    helm.sh/chart: {{ .Chart.Name }}
+    app.kubernetes.io/managed-by: helm
+    app.kubernetes.io/component: "loadbalancer"
+  {{- with .Values.ingress.annotations }}
+  annotations:
+    # https://github.com/kubernetes/ingress-nginx/blob/main/docs/user-guide/nginx-configuration/annotations.md#proxy-redirect
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if eq true .Values.ingress.tlsEnable }}
+  tls:
+      {{- range .Values.ingress.tls }}
+    - secretName: {{ .secretName }}
+      hosts:
+        {{- range .hosts }}
+        - {{ . }}
+        {{- end}}
+      {{- end }}
+  {{- end }}
+  ingressClassName: nginx
+  rules:
+            {{- range $index, $value := .Values.ingress.hosts }}
+    - host: {{ if eq $index 0 }} {{ $value.host }} {{ end }}
+            {{- end }}
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: web-star-server-srv
+                port:
+                  number: 80
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: web-star-client-srv
+                port:
+                  number: 80

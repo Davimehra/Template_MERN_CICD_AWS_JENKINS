@@ -1,0 +1,15 @@
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: webstar-sc
+{{- if eq "prod" .Values.RUNTIME_ENV }}
+provisioner: kubernetes.io/aws-ebs
+parameters:
+  type: gp2 
+  zones: eu-north-1a
+  iopsPerGB: "10"
+  fsType: ext4
+{{- else }}
+provisioner: k8s.io/minikube-hostpath
+{{- end }}
+reclaimPolicy: Delete

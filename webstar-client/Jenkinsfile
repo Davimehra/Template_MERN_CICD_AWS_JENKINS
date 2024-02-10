@@ -1,0 +1,52 @@
+pipeline {
+
+    agent any
+/*
+	tools {
+        maven "maven3"
+    }
+*/
+    environment {
+        clientregistry = "davimehra/web_star_client"
+        registryCredential = 'dockerhub'
+        webEnvironment = 'prod'
+    }
+
+    stages{
+
+        stage('Build Client App Image') {
+          steps {
+            script {
+              dockerClientImage = docker.build("${clientregistry}:V$BUILD_NUMBER","--build-arg DOCKER_NODE_ENV=prod .")
+            }
+          }
+        }
+
+        stage('Upload Client Docker Image'){
+          steps{
+            script {
+              docker.withRegistry('', registryCredential) {
+                dockerClientImage.push("V$BUILD_NUMBER")
+                dockerClientImage.push("latest")
+              }
+            }
+          }
+        }
+
+
+        stage('Remove Unused docker image') {
+          steps{
+            sh "docker rmi $clientregistry:V$BUILD_NUMBER"
+          }
+        }
+
+        stage('Kubernetes Deploy') {
+          agent {label 'KOPS'}
+            steps {
+              sh "helm upgrade --install --force web-star-client helm/web_star_client_helm --set client_image=${clientregistry}:V${BUILD_NUMBER} --set RUNTIME_ENV=${webEnvironment} --create-namespace --namespace prod"
+            }
+        }
+    }
+
+
+}

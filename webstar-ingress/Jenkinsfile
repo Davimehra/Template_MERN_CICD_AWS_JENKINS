@@ -1,0 +1,17 @@
+pipeline {
+
+    agent any
+    
+    stages{
+
+        stage('Kubernetes Deploy') {
+          agent {label 'KOPS'}
+            steps {
+              echo "Installing Ingress LoadBalancer"
+              sh "helm upgrade --install --force web-star-ingress-nginx helm/webstaringress --set RUNTIME_ENV=prod --create-namespace --namespace prod"
+            }
+        }
+    }
+
+
+}

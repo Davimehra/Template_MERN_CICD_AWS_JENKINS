@@ -1,0 +1,122 @@
+apiVersion: skaffold/v4beta8
+kind: Config
+metadata:
+  name: web-star
+build:
+  local:
+    # useDockerCLI: true
+    # tryImportMissing: false
+    # useBuildkit: false
+    # how many artifacts can be built concurrently. 0 means “no-limit”.
+    # concurrency: 0
+    push: false
+  artifacts:
+    - image: davimehra/web_star_server
+      context: webstar-server
+      docker:
+        pullParent: false
+        noCache: false
+        buildArgs:
+          DOCKER_NODE_ENV: "{{.SKAFFOLD_NODE_ENV}}"
+        dockerfile: Dockerfile
+      sync:
+        manual:
+          - src: "src/**/*.ts"
+            dest: .
+          - src: "src/*.ts"
+            dest: .
+    - image: davimehra/web_star_client
+      context: webstar-client
+      docker:
+        pullParent: true
+        noCache: true
+        buildArgs:
+          DOCKER_NODE_ENV: "{{.SKAFFOLD_NODE_ENV}}"
+        dockerfile: Dockerfile
+      sync:
+        manual:
+          - src: "src/**/*.js"
+            dest: .
+          - src: "src/*/**/*.js"
+            dest: .
+          - src: "src/*/*/**/*.js"
+            dest: .
+          - src: "src/**/*.module.css"
+            dest: .
+          - src: "public/*.html"
+            dest: .
+    
+deploy:
+  helm:
+    releases:
+      - name: webstar-ingress
+        setValues: { RUNTIME_ENV: "dev" }
+        chartPath: webstar-ingress/helm/webstaringress
+        valuesFiles:
+          - webstar-ingress/helm/webstaringress/values.yaml
+        version: 0.1.0
+      - name: webstar-server
+        setValues: { RUNTIME_ENV: "dev" }
+        chartPath: webstar-server/helm/web_star_server_helm
+        valuesFiles:
+          - webstar-server/helm/web_star_server_helm/values.yaml
+        version: 0.1.0
+      - name: webstar-client
+        setValues: { RUNTIME_ENV: "dev" }
+        chartPath: webstar-client/helm/web_star_client_helm
+        valuesFiles:
+          - webstar-client/helm/web_star_client_helm/values.yaml
+        version: 0.1.0
+      - name: webstar-database-mongodb
+        setValues: { RUNTIME_ENV: "dev" }
+        chartPath: webstar-database-mongodb/helm
+        valuesFiles:
+          - webstar-database-mongodb/helm/values.yaml
+        version: 0.1.0
+      - name: webstar-mariadb-database
+        setValues: { RUNTIME_ENV: "dev" }
+        chartPath: webstar-mariadb-database
+        valuesFiles:
+          - webstar-mariadb-database/values.yaml
+        version: 0.1.0
+
+profiles:
+  - name: production
+    activation:
+      - env: SKAFFOLD_NODE_ENV=prod
+    patches:
+      - op: replace
+        path: /deploy/helm/releases/0/setValues
+        value: { RUNTIME_ENV: "prod" }
+      - op: replace
+        path: /deploy/helm/releases/1/setValues
+        value: { RUNTIME_ENV: "prod" }
+      - op: replace
+        path: /deploy/helm/releases/2/setValues
+        value: { RUNTIME_ENV: "prod" }
+      - op: replace
+        path: /deploy/helm/releases/3/setValues
+        value: { RUNTIME_ENV: "prod" }
+      - op: replace
+        path: /deploy/helm/releases/4/setValues
+        value: { RUNTIME_ENV: "prod" }
+    requiresAllActivations: false
+  - name: test
+    activation:
+      - env: SKAFFOLD_NODE_ENV=test
+    patches:
+      - op: remove
+        path: /build/artifacts/1
+      - op: replace
+        path: /deploy/helm/releases/0/setValues
+        value: { RUNTIME_ENV: "test" }
+      - op: replace
+        path: /deploy/helm/releases/1/setValues
+        value: { RUNTIME_ENV: "test" }
+      - op: remove
+        path: /deploy/helm/releases/4
+      - op: remove
+        path: /deploy/helm/releases/3
+      - op: remove
+        path: /deploy/helm/releases/2
+    requiresAllActivations: false

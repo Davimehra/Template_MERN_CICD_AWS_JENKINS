@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-star-server-depl
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: web-star-server
+  template:
+    metadata:
+      labels:
+        app: web-star-server
+    spec:
+      restartPolicy: Always
+      initContainers:
+        - name: setup-env
+          # prettier-ignore
+          image: "busybox"
+          imagePullPolicy: Always
+          command:
+            - sh
+            - "-c"
+            - |
+              set -ex
+              echo "Starting Container"
+      nodeSelector:
+        zone: eu-north-1a
+      containers:
+        - name: web-star-server
+          {{- if eq "dev" .Values.RUNTIME_ENV }}
+          args: ["run-script","dev"]
+          {{- else if eq "prod" .Values.RUNTIME_ENV }}
+          args: ["start"]
+          {{- else if eq "test" .Values.RUNTIME_ENV }}
+          args: ["test"]
+          {{- end }}
+          imagePullPolicy: IfNotPresent
+          #imagePullPolicy: Always
+          # prettier-ignore
+          image: {{ .Values.server_image }}
+          ports:
+            - containerPort: 5000
+          env:
+          {{- range .Values.secret }}
+            - name: {{ .name }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.secretName }}
+                  key: {{ .name }}
+          {{- end }}
+            # - name:  MONGO_URI
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name:  webstar-server-secret
+            #       key:  MONGO_URI
+            # - name:  JWT_KEY
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name:  webstar-server-secret
+            #       key:  JWT_KEY
+
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-star-server-srv
+spec:
+  type: ClusterIP
+  selector:
+    app: web-star-server
+  ports:
+    - name: web-star-client-serviceport
+      protocol: TCP
+      port: 80
+      targetPort: 5000

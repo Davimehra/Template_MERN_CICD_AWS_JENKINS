@@ -1,0 +1,56 @@
+pipeline {
+
+    agent any
+/*
+	tools {
+        maven "maven3"
+    }
+*/
+    environment {
+        serverregistry = "davimehra/web_star_server"
+        registryCredential = 'dockerhub'
+        webEnvironment = 'prod'
+    }
+
+    stages{
+
+        stage('Build Server App Image') {
+          steps {
+            script {
+              echo " Building Docker Container using dockerfile , imageName = ${serverregistry} "
+              dockerServerImage = docker.build("${serverregistry}:V$BUILD_NUMBER","--build-arg DOCKER_NODE_ENV=prod .")
+            }
+          }
+        }
+
+        stage('Upload Server Docker Image'){
+          steps{
+            script {
+              echo "Uploading Docker Image to registry"
+              docker.withRegistry('', registryCredential) {
+                dockerServerImage.push("V$BUILD_NUMBER")
+                dockerServerImage.push("latest")
+              }
+            }
+          }
+        }
+
+
+        stage('Remove Unused docker image') {
+          steps{
+            echo "Removing unwanted docker images"
+            sh "docker rmi $serverregistry:V$BUILD_NUMBER"
+          }
+        }
+
+        stage('Kubernetes Deploy') {
+          agent {label 'KOPS'}
+            steps {
+              echo "Deploying kubernetes resources via helm on agent 'KOPS' machine"
+              sh "helm upgrade --install --force web-star-server helm/web_star_server_helm --set-json server_image=${serverregistry}:V${BUILD_NUMBER},RUNTIME_ENV=${webEnvironment} --create-namespace --namespace prod"
+            }
+        }
+    }
+
+
+}

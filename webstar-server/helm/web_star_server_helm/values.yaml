@@ -1,0 +1,16 @@
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+server_image: davimehra/web_star_server
+
+replicaCount: 1
+
+secretName: webstar-server-secret
+
+secret:
+  - name: MONGO_URI
+    value: mongodb://mongodb-svc:27017/testdatabases
+  - name: JWT_ACCESS_TOKEN_SECRET
+    value: somerandomaccesswords
+  - name: JWT_REFRESH_TOKEN_SECRET
+    value: somerandomerefreshwords

@@ -1,0 +1,17 @@
+pipeline {
+    agent any
+    environment{
+      webEnvironment = 'prod'
+    }
+    stages{
+        stage('Kubernetes Deploying Mongodb Database') {
+          agent {label 'KOPS'}
+            steps {
+              echo "Deploying Mongodb Database"
+              sh "helm upgrade --install --force web-star-database-mongodb helm/ --set RUNTIME_ENV=${webEnvironment} --create-namespace --namespace prod"
+            }
+        }
+    }
+
+
+}
